@@ -45,6 +45,7 @@ import com.actionbarsherlock.view.ActionMode;
 import com.actionbarsherlock.view.Menu;
 import com.actionbarsherlock.view.MenuInflater;
 import com.actionbarsherlock.view.MenuItem;
+import com.actionbarsherlock.widget.ShareActionProvider;
 import com.google.dogecoin.core.Address;
 import com.google.dogecoin.core.Transaction;
 import com.google.dogecoin.uri.BitcoinURI;
@@ -60,8 +61,8 @@ import de.langerhans.wallet.R;
 /**
  * @author Andreas Schildbach
  */
-public final class SendingAddressesFragment extends SherlockListFragment implements LoaderManager.LoaderCallbacks<Cursor>
-{
+public final class SendingAddressesFragment extends SherlockListFragment
+		implements LoaderManager.LoaderCallbacks<Cursor> {
 	private AbstractWalletActivity activity;
 	private ClipboardManager clipboardManager;
 	private LoaderManager loaderManager;
@@ -74,41 +75,44 @@ public final class SendingAddressesFragment extends SherlockListFragment impleme
 	private static final int REQUEST_CODE_SCAN = 0;
 
 	@Override
-	public void onAttach(final Activity activity)
-	{
+	public void onAttach(final Activity activity) {
 		super.onAttach(activity);
 
 		this.activity = (AbstractWalletActivity) activity;
-		this.clipboardManager = (ClipboardManager) activity.getSystemService(Context.CLIPBOARD_SERVICE);
+		this.clipboardManager = (ClipboardManager) activity
+				.getSystemService(Context.CLIPBOARD_SERVICE);
 		this.loaderManager = getLoaderManager();
 	}
 
 	@Override
-	public void onCreate(final Bundle savedInstanceState)
-	{
+	public void onCreate(final Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
 
 		setHasOptionsMenu(true);
 	}
 
 	@Override
-	public void onActivityCreated(final Bundle savedInstanceState)
-	{
+	public void onActivityCreated(final Bundle savedInstanceState) {
 		super.onActivityCreated(savedInstanceState);
 
 		setEmptyText(getString(R.string.address_book_empty_text));
 
-		adapter = new SimpleCursorAdapter(activity, R.layout.address_book_row, null, new String[] { AddressBookProvider.KEY_LABEL,
-				AddressBookProvider.KEY_ADDRESS }, new int[] { R.id.address_book_row_label, R.id.address_book_row_address }, 0);
-		adapter.setViewBinder(new ViewBinder()
-		{
+		adapter = new SimpleCursorAdapter(activity, R.layout.address_book_row,
+				null, new String[] { AddressBookProvider.KEY_LABEL,
+						AddressBookProvider.KEY_ADDRESS }, new int[] {
+						R.id.address_book_row_label,
+						R.id.address_book_row_address }, 0);
+		adapter.setViewBinder(new ViewBinder() {
 			@Override
-			public boolean setViewValue(final View view, final Cursor cursor, final int columnIndex)
-			{
-				if (!AddressBookProvider.KEY_ADDRESS.equals(cursor.getColumnName(columnIndex)))
+			public boolean setViewValue(final View view, final Cursor cursor,
+					final int columnIndex) {
+				if (!AddressBookProvider.KEY_ADDRESS.equals(cursor
+						.getColumnName(columnIndex)))
 					return false;
 
-				((TextView) view).setText(WalletUtils.formatHash(cursor.getString(columnIndex), Constants.ADDRESS_FORMAT_GROUP_SIZE,
+				((TextView) view).setText(WalletUtils.formatHash(
+						cursor.getString(columnIndex),
+						Constants.ADDRESS_FORMAT_GROUP_SIZE,
 						Constants.ADDRESS_FORMAT_LINE_SIZE));
 
 				return true;
@@ -120,118 +124,117 @@ public final class SendingAddressesFragment extends SherlockListFragment impleme
 	}
 
 	@Override
-	public void onActivityResult(final int requestCode, final int resultCode, final Intent intent)
-	{
-		if (requestCode == REQUEST_CODE_SCAN && resultCode == Activity.RESULT_OK)
-		{
-			final String input = intent.getStringExtra(ScanActivity.INTENT_EXTRA_RESULT);
+	public void onActivityResult(final int requestCode, final int resultCode,
+			final Intent intent) {
+		if (requestCode == REQUEST_CODE_SCAN
+				&& resultCode == Activity.RESULT_OK) {
+			final String input = intent
+					.getStringExtra(ScanActivity.INTENT_EXTRA_RESULT);
 
-			new StringInputParser(input)
-			{
+			new StringInputParser(input) {
 				@Override
-				protected void bitcoinRequest(final Address address, final String addressLabel, final BigInteger amount, final String bluetoothMac)
-				{
-					// workaround for "IllegalStateException: Can not perform this action after onSaveInstanceState"
-					handler.postDelayed(new Runnable()
-					{
+				protected void bitcoinRequest(final Address address,
+						final String addressLabel, final BigInteger amount,
+						final String bluetoothMac) {
+					// workaround for
+					// "IllegalStateException: Can not perform this action after onSaveInstanceState"
+					handler.postDelayed(new Runnable() {
 						@Override
-						public void run()
-						{
-							EditAddressBookEntryFragment.edit(getFragmentManager(), address.toString());
+						public void run() {
+							EditAddressBookEntryFragment.edit(
+									getFragmentManager(), address.toString());
 						}
 					}, 500);
 				}
 
 				@Override
-				protected void directTransaction(final Transaction transaction)
-				{
+				protected void directTransaction(final Transaction transaction) {
 					cannotClassify(input);
 				}
 
 				@Override
-				protected void error(final int messageResId, final Object... messageArgs)
-				{
-					dialog(activity, null, R.string.address_book_options_scan_title, messageResId, messageArgs);
+				protected void error(final int messageResId,
+						final Object... messageArgs) {
+					dialog(activity, null,
+							R.string.address_book_options_scan_title,
+							messageResId, messageArgs);
 				}
 			}.parse();
 		}
 	}
 
 	@Override
-	public void onCreateOptionsMenu(final Menu menu, final MenuInflater inflater)
-	{
+	public void onCreateOptionsMenu(final Menu menu, final MenuInflater inflater) {
 		inflater.inflate(R.menu.sending_addresses_fragment_options, menu);
 
 		final PackageManager pm = activity.getPackageManager();
-		menu.findItem(R.id.sending_addresses_options_scan).setVisible(
-				pm.hasSystemFeature(PackageManager.FEATURE_CAMERA) || pm.hasSystemFeature(PackageManager.FEATURE_CAMERA_FRONT));
+		menu.findItem(R.id.sending_addresses_options_scan)
+				.setVisible(
+						pm.hasSystemFeature(PackageManager.FEATURE_CAMERA)
+								|| pm.hasSystemFeature(PackageManager.FEATURE_CAMERA_FRONT));
 
 		super.onCreateOptionsMenu(menu, inflater);
 	}
 
 	@Override
-	public boolean onOptionsItemSelected(final MenuItem item)
-	{
-		switch (item.getItemId())
-		{
-			case R.id.sending_addresses_options_paste:
-				handlePasteClipboard();
-				return true;
+	public boolean onOptionsItemSelected(final MenuItem item) {
+		switch (item.getItemId()) {
+		case R.id.sending_addresses_options_paste:
+			handlePasteClipboard();
+			return true;
 
-			case R.id.sending_addresses_options_scan:
-				handleScan();
-				return true;
+		case R.id.sending_addresses_options_scan:
+			handleScan();
+			return true;
 		}
 
 		return super.onOptionsItemSelected(item);
 	}
 
-	private void handlePasteClipboard()
-	{
-		if (clipboardManager.hasText())
-		{
+	private void handlePasteClipboard() {
+		if (clipboardManager.hasText()) {
 			final String input = clipboardManager.getText().toString().trim();
 
-			new StringInputParser(input)
-			{
+			new StringInputParser(input) {
 				@Override
-				protected void bitcoinRequest(final Address address, final String addressLabel, final BigInteger amount, final String bluetoothMac)
-				{
-					EditAddressBookEntryFragment.edit(getFragmentManager(), address.toString());
+				protected void bitcoinRequest(final Address address,
+						final String addressLabel, final BigInteger amount,
+						final String bluetoothMac) {
+					EditAddressBookEntryFragment.edit(getFragmentManager(),
+							address.toString());
 				}
 
 				@Override
-				protected void directTransaction(final Transaction transaction)
-				{
+				protected void directTransaction(final Transaction transaction) {
 					cannotClassify(input);
 				}
 
 				@Override
-				protected void error(final int messageResId, final Object... messageArgs)
-				{
-					dialog(activity, null, R.string.address_book_options_paste_from_clipboard_title, messageResId, messageArgs);
+				protected void error(final int messageResId,
+						final Object... messageArgs) {
+					dialog(activity,
+							null,
+							R.string.address_book_options_paste_from_clipboard_title,
+							messageResId, messageArgs);
 				}
 			}.parse();
-		}
-		else
-		{
+		} else {
 			activity.toast(R.string.address_book_options_copy_from_clipboard_msg_empty);
 		}
 	}
 
-	private void handleScan()
-	{
-		startActivityForResult(new Intent(activity, ScanActivity.class), REQUEST_CODE_SCAN);
+	private void handleScan() {
+		startActivityForResult(new Intent(activity, ScanActivity.class),
+				REQUEST_CODE_SCAN);
 	}
 
 	@Override
-	public void onListItemClick(final ListView l, final View v, final int position, final long id)
-	{
-		activity.startActionMode(new ActionMode.Callback()
-		{
+	public void onListItemClick(final ListView l, final View v,
+			final int position, final long id) {
+		activity.startActionMode(new ActionMode.Callback() {
 			@Override
-			public boolean onCreateActionMode(final ActionMode mode, final Menu menu)
-			{
+			public boolean onCreateActionMode(final ActionMode mode,
+					final Menu menu) {
 				final MenuInflater inflater = mode.getMenuInflater();
 				inflater.inflate(R.menu.sending_addresses_context, menu);
 
@@ -239,8 +242,8 @@ public final class SendingAddressesFragment extends SherlockListFragment impleme
 			}
 
 			@Override
-			public boolean onPrepareActionMode(final ActionMode mode, final Menu menu)
-			{
+			public boolean onPrepareActionMode(final ActionMode mode,
+					final Menu menu) {
 				final String label = getLabel(position);
 				mode.setTitle(label);
 
@@ -248,110 +251,137 @@ public final class SendingAddressesFragment extends SherlockListFragment impleme
 			}
 
 			@Override
-			public boolean onActionItemClicked(final ActionMode mode, final MenuItem item)
-			{
-				switch (item.getItemId())
-				{
-					case R.id.sending_addresses_context_send:
-						handleSend(getAddress(position));
+			public boolean onActionItemClicked(final ActionMode mode,
+					final MenuItem item) {
+				switch (item.getItemId()) {
+				case R.id.sending_addresses_context_send:
+					handleSend(getAddress(position));
 
-						mode.finish();
-						return true;
+					mode.finish();
+					return true;
 
-					case R.id.sending_addresses_context_edit:
-						EditAddressBookEntryFragment.edit(getFragmentManager(), getAddress(position));
+				case R.id.wallet_addresses_context_share:
+					handleShare(item, getAddress(position));
+					mode.finish();
+					return true;
 
-						mode.finish();
-						return true;
+				case R.id.sending_addresses_context_edit:
+					EditAddressBookEntryFragment.edit(getFragmentManager(),
+							getAddress(position));
 
-					case R.id.sending_addresses_context_remove:
-						handleRemove(getAddress(position));
+					mode.finish();
+					return true;
 
-						mode.finish();
-						return true;
+				case R.id.sending_addresses_context_remove:
+					handleRemove(getAddress(position));
 
-					case R.id.sending_addresses_context_show_qr:
-						handleShowQr(getAddress(position));
+					mode.finish();
+					return true;
 
-						mode.finish();
-						return true;
+				case R.id.sending_addresses_context_show_qr:
+					handleShowQr(getAddress(position));
 
-					case R.id.sending_addresses_context_copy_to_clipboard:
-						handleCopyToClipboard(getAddress(position));
+					mode.finish();
+					return true;
 
-						mode.finish();
-						return true;
+				case R.id.sending_addresses_context_copy_to_clipboard:
+					handleCopyToClipboard(getAddress(position));
+
+					mode.finish();
+					return true;
 				}
 
 				return false;
 			}
+			
+			private void handleShare(MenuItem item2, String address) {
+
+				ShareActionProvider provider = (ShareActionProvider) item2
+						.getActionProvider();
+				provider.setShareHistoryFileName(ShareActionProvider.DEFAULT_SHARE_HISTORY_FILE_NAME);
+				// Note that you can set/change the intent any time,
+				// say when the user has selected an image.
+				provider.setShareIntent(createShareIntent(address));
+
+			}
 
 			@Override
-			public void onDestroyActionMode(final ActionMode mode)
-			{
+			public void onDestroyActionMode(final ActionMode mode) {
 			}
 
-			private String getAddress(final int position)
-			{
+
+
+			private String getAddress(final int position) {
 				final Cursor cursor = (Cursor) adapter.getItem(position);
-				return cursor.getString(cursor.getColumnIndexOrThrow(AddressBookProvider.KEY_ADDRESS));
+				return cursor.getString(cursor
+						.getColumnIndexOrThrow(AddressBookProvider.KEY_ADDRESS));
 			}
 
-			private String getLabel(final int position)
-			{
+			private String getLabel(final int position) {
 				final Cursor cursor = (Cursor) adapter.getItem(position);
-				return cursor.getString(cursor.getColumnIndexOrThrow(AddressBookProvider.KEY_LABEL));
+				return cursor.getString(cursor
+						.getColumnIndexOrThrow(AddressBookProvider.KEY_LABEL));
 			}
 		});
 	}
 
-	private void handleSend(final String address)
-	{
+	private Intent createShareIntent(@Nonnull final String address) {
+		Intent shareIntent = new Intent(Intent.ACTION_SEND);
+		shareIntent.setType("text/plain");
+		shareIntent.putExtra(android.content.Intent.EXTRA_SUBJECT, "Label");
+		shareIntent.putExtra(android.content.Intent.EXTRA_TEXT,
+				address.toString());
+		return shareIntent;
+	}
+
+	private void handleSend(final String address) {
 		SendCoinsActivity.start(activity, address, null, null, null);
 	}
 
-	private void handleRemove(final String address)
-	{
-		final Uri uri = AddressBookProvider.contentUri(activity.getPackageName()).buildUpon().appendPath(address).build();
+	private void handleRemove(final String address) {
+		final Uri uri = AddressBookProvider
+				.contentUri(activity.getPackageName()).buildUpon()
+				.appendPath(address).build();
 		activity.getContentResolver().delete(uri, null, null);
 	}
 
-	private void handleShowQr(final String address)
-	{
-		final String uri = BitcoinURI.convertToBitcoinURI(address, null, null, null);
+	private void handleShowQr(final String address) {
+		final String uri = BitcoinURI.convertToBitcoinURI(address, null, null,
+				null);
 		final int size = (int) (256 * getResources().getDisplayMetrics().density);
 		BitmapFragment.show(getFragmentManager(), Qr.bitmap(uri, size));
 	}
 
-	private void handleCopyToClipboard(final String address)
-	{
+	private void handleCopyToClipboard(final String address) {
 		clipboardManager.setText(address);
 		activity.toast(R.string.wallet_address_fragment_clipboard_msg);
 	}
 
 	@Override
-	public Loader<Cursor> onCreateLoader(final int id, final Bundle args)
-	{
-		final Uri uri = AddressBookProvider.contentUri(activity.getPackageName());
-		return new CursorLoader(activity, uri, null, AddressBookProvider.SELECTION_NOTIN,
-				new String[] { walletAddressesSelection != null ? walletAddressesSelection : "" }, AddressBookProvider.KEY_LABEL
+	public Loader<Cursor> onCreateLoader(final int id, final Bundle args) {
+		final Uri uri = AddressBookProvider.contentUri(activity
+				.getPackageName());
+		return new CursorLoader(
+				activity,
+				uri,
+				null,
+				AddressBookProvider.SELECTION_NOTIN,
+				new String[] { walletAddressesSelection != null ? walletAddressesSelection
+						: "" }, AddressBookProvider.KEY_LABEL
 						+ " COLLATE LOCALIZED ASC");
 	}
 
 	@Override
-	public void onLoadFinished(final Loader<Cursor> loader, final Cursor data)
-	{
+	public void onLoadFinished(final Loader<Cursor> loader, final Cursor data) {
 		adapter.swapCursor(data);
 	}
 
 	@Override
-	public void onLoaderReset(final Loader<Cursor> loader)
-	{
+	public void onLoaderReset(final Loader<Cursor> loader) {
 		adapter.swapCursor(null);
 	}
 
-	public void setWalletAddresses(@Nonnull final ArrayList<Address> addresses)
-	{
+	public void setWalletAddresses(@Nonnull final ArrayList<Address> addresses) {
 		final StringBuilder builder = new StringBuilder();
 		for (final Address address : addresses)
 			builder.append(address.toString()).append(",");
